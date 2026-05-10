@@ -13,7 +13,7 @@
 
 [![npm version](https://img.shields.io/npm/v/mentari-cli.svg)](https://www.npmjs.com/package/mentari-cli)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
 ---
 
@@ -315,5 +315,10 @@ Semua model Gemini free tier punya limit harian. Jika semua habis:
 
 ## Dibuat oleh
 
-**Revan** — MENTARI CLI v2.0  
+**Eka Revandi** — MENTARI CLI v2.0  
 [npmjs.com/package/mentari-cli](https://www.npmjs.com/package/mentari-cli)
+
+---
+
+© 2026 Eka Revandi. All rights reserved.  
+Dilarang mendistribusikan, memodifikasi, atau menggunakan untuk keperluan komersial tanpa izin tertulis.

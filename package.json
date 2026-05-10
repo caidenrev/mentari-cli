@@ -23,8 +23,8 @@
     "gemini",
     "ai"
   ],
-  "author": "Revan",
-  "license": "MIT",
+  "author": "Eka Revandi",
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=18.0.0"
   },
