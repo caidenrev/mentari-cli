@@ -61,25 +61,53 @@ Login dilakukan melalui browser Chromium yang dibuka otomatis (via Puppeteer), s
 
 ## Prasyarat
 
-- **Node.js** v18 atau lebih baru
-- **Google Chrome** atau Chromium (dipakai Puppeteer)
-- **Akun Gemini AI Studio** untuk mendapatkan API key gratis
+- **Node.js** v18 atau lebih baru — [nodejs.org](https://nodejs.org)
+- **Google Chrome** atau Microsoft Edge — sudah terinstall di device
+- **Akun Gemini AI Studio** untuk API key gratis — [aistudio.google.com](https://aistudio.google.com/app/apikey)
 - Akun mahasiswa aktif di LMS Mentari UNPAM
+
+> CLI menggunakan Chrome/Edge yang sudah ada di device kamu — tidak perlu download browser tambahan.
 
 ---
 
 ## Instalasi
 
-```bash
-# Clone atau download project
-git clone <repo-url>
-cd mentari-cli
+### Via npm (Direkomendasikan)
 
-# Install dependencies
-npm install
+```bash
+npm install -g mentari-cli
 ```
 
-Puppeteer akan otomatis mengunduh Chromium saat `npm install`. Proses ini membutuhkan koneksi internet dan sekitar 300MB ruang disk.
+Setelah install, jalankan dari mana saja:
+
+```bash
+mentari
+```
+
+> Instalasi ringan — tidak download browser tambahan. CLI otomatis menggunakan Google Chrome atau Microsoft Edge yang sudah ada di device kamu.
+
+### Update ke Versi Terbaru
+
+```bash
+npm update -g mentari-cli
+```
+
+### Via Clone (Development)
+
+```bash
+git clone <repo-url>
+cd mentari-cli
+npm install
+node src/index.js
+```
+
+---
+
+## Update ke Versi Terbaru
+
+```bash
+npm update -g mentari-cli
+```
 
 ---
 

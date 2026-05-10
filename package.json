@@ -1,15 +1,33 @@
 {
   "name": "mentari-cli",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "1.0.1",
+  "description": "LMS Auto-Pilot CLI untuk mahasiswa UNPAM — otomasi tugas, absensi, dan forum diskusi berbasis AI Gemini",
+  "main": "src/index.js",
   "type": "module",
+  "bin": {
+    "mentari": "bin/mentari.js"
+  },
   "scripts": {
+    "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "config": {
+    "puppeteer_skip_download": "true"
+  },
+  "keywords": [
+    "mentari",
+    "unpam",
+    "lms",
+    "cli",
+    "automation",
+    "gemini",
+    "ai"
+  ],
+  "author": "Revan",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "dotenv": "^16.4.5",

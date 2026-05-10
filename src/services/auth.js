@@ -6,6 +6,41 @@ import { setBrowserPage } from '../api/browser-client.js';
 
 const MENTARI_URL = 'https://mentari.unpam.ac.id';
 
+// ─── Auto-detect Chrome/Chromium di device user ───────────────────────────────
+function findChromePath() {
+    const platform = process.platform;
+
+    const candidates = {
+        win32: [
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
+            `${process.env.LOCALAPPDATA}\\Chromium\\Application\\chrome.exe`,
+            'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+            `${process.env.LOCALAPPDATA}\\Microsoft\\Edge\\Application\\msedge.exe`,
+        ],
+        darwin: [
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            '/Applications/Chromium.app/Contents/MacOS/Chromium',
+            '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+        ],
+        linux: [
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/snap/bin/chromium',
+            '/usr/bin/microsoft-edge',
+        ],
+    };
+
+    const paths = candidates[platform] || candidates.linux;
+    for (const p of paths) {
+        if (p && fs.existsSync(p)) return p;
+    }
+    return null;
+}
+
 // ─── Login via Puppeteer ──────────────────────────────────────────────────────
 async function loginViaBrowser() {
     let puppeteer;
@@ -18,6 +53,15 @@ async function loginViaBrowser() {
         return null;
     }
 
+    // Cari Chrome/Edge yang sudah ada di device
+    const chromePath = findChromePath();
+    if (!chromePath) {
+        console.log(warning('Chrome/Edge tidak ditemukan di device ini.'));
+        console.log(info('Install Google Chrome lalu coba lagi: https://www.google.com/chrome'));
+        return null;
+    }
+
+    console.log(info(`Menggunakan browser: ${chromePath}`));
     console.log(info('Membuka browser... Silakan login seperti biasa.'));
     console.log(colorize('  (Browser akan tetap terbuka di background setelah login)', 'gray'));
     console.log('');
@@ -26,6 +70,7 @@ async function loginViaBrowser() {
     try {
         browser = await puppeteer.launch({
             headless: false,
+            executablePath: chromePath,   // Pakai Chrome user, bukan Chromium download
             defaultViewport: null,
             args: [
                 '--start-maximized',
