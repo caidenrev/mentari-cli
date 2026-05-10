@@ -85,17 +85,13 @@ Puppeteer akan otomatis mengunduh Chromium saat `npm install`. Proses ini membut
 
 ## Konfigurasi
 
-File `.env` dibuat otomatis saat pertama kali login. Tidak perlu membuat atau mengisi file ini secara manual.
+Tidak perlu setup manual apapun. Semua konfigurasi dikelola otomatis oleh CLI:
 
-Isi `.env` yang dikelola otomatis oleh CLI:
+- **Token LMS** — ditangkap otomatis saat login via browser
+- **Gemini API Key** — dimasukkan sekali saat pertama kali jalan, disimpan otomatis
+- **Model AI** — dideteksi otomatis dari API key yang dimasukkan
 
-```env
-BEARER_TOKEN=eyJhbGci...      # Token autentikasi LMS Mentari
-CF_CLEARANCE=abc123...        # Cookie Cloudflare (opsional)
-GEMINI_API_KEY=AIza...        # API key Google Gemini
-GEMINI_MODEL=gemini-2.5-flash # Model AI yang aktif
-GEMINI_API_VERSION=v1beta     # Versi API Gemini
-```
+File `.env` dibuat dan dikelola sendiri oleh CLI di background. User tidak perlu menyentuhnya.
 
 ---
 
@@ -109,36 +105,40 @@ node src/index.js
 
 ---
 
-### Login
+### Setup Pertama Kali
 
-Saat pertama kali dijalankan (atau saat token expired), CLI akan:
+Saat pertama kali dijalankan, CLI akan melakukan dua setup otomatis:
 
-1. Membuka browser Chromium secara otomatis
-2. Menampilkan halaman login LMS Mentari
-3. User login dengan NIM dan password seperti biasa
-4. CLI mendeteksi token secara otomatis setelah login berhasil
-5. Browser tetap terbuka di background untuk menjaga sesi Cloudflare
-
-> **Catatan:** Jangan tutup browser Chromium yang terbuka selama CLI sedang digunakan. Browser ini dipakai untuk semua request API agar tidak diblokir Cloudflare.
-
-Jika login otomatis gagal, CLI akan beralih ke mode input manual:
+#### 1. Setup Gemini API Key
 
 ```
-Paste BEARER_TOKEN: <paste token dari F12 → Network → Authorization header>
-Paste CF_CLEARANCE: <paste dari F12 → Network → Cookie header>
+┌─ SETUP GEMINI API KEY ──────────────────────────────────────┐
+│  Dapatkan API Key gratis di:                                │
+│  https://aistudio.google.com/app/apikey                     │
+│  Key hanya perlu dimasukkan sekali dan disimpan otomatis.   │
+└─────────────────────────────────────────────────────────────┘
+
+⟶ Masukkan Gemini API Key: ****************************
+ⓘ Mendeteksi model yang tersedia...
+✓ API Key valid! Model terdeteksi: gemini-2.5-flash
 ```
 
----
+Buka [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey), buat API key gratis, lalu paste ke CLI. Key disimpan permanen — tidak perlu dimasukkan lagi di sesi berikutnya.
 
-### Setup Gemini API Key
+#### 2. Login LMS Mentari
 
-Saat pertama kali dijalankan, CLI akan meminta Gemini API Key:
+```
+┌─ AUTENTIKASI MENTARI CLI ──────────────────────────────────┐
+│  ▶ Browser akan terbuka otomatis                           │
+│  ▶ Login dengan NIM dan password seperti biasa             │
+│  ▶ CLI otomatis mendeteksi token setelah login             │
+│  Browser tetap terbuka di background untuk bypass CF       │
+└────────────────────────────────────────────────────────────┘
+```
 
-1. Buka [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-2. Buat API key baru (gratis)
-3. Paste ke CLI saat diminta
+Browser Chromium terbuka otomatis → login dengan NIM dan password → CLI menangkap token secara otomatis. Tidak perlu copy-paste apapun.
 
-CLI akan otomatis mendeteksi model Gemini terbaik yang tersedia untuk API key tersebut. Key hanya perlu dimasukkan sekali dan disimpan permanen.
+> **Penting:** Jangan tutup browser Chromium yang terbuka. Browser ini dipakai untuk semua request API agar tidak diblokir Cloudflare.
 
 ---
 
@@ -352,11 +352,11 @@ eksekusiKuesioner()
 
 ### Cloudflare Protection
 
-LMS Mentari dilindungi Cloudflare. CF clearance yang diambil dari Puppeteer **tidak bisa dipakai** di Node.js fetch biasa karena terikat ke TLS fingerprint browser. Oleh karena itu:
+LMS Mentari dilindungi Cloudflare. Token yang diambil dari Puppeteer tidak bisa dipakai di Node.js fetch biasa karena terikat ke TLS fingerprint browser. Oleh karena itu:
 
 - Semua request API dijalankan dari dalam Puppeteer (`page.evaluate`)
 - Browser Chromium harus tetap terbuka selama CLI digunakan
-- Jika browser ditutup, CLI akan meminta login ulang
+- Jika browser ditutup, CLI akan meminta login ulang otomatis
 
 ### Quota Gemini Free Tier
 
