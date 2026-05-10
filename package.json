@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/generative-ai": "^0.2.1",
+    "@google/generative-ai": "^0.24.1",
     "dotenv": "^16.4.5",
     "inquirer": "^9.2.16",
     "puppeteer": "^24.43.0",

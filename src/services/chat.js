@@ -1,10 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import 'dotenv/config';
-import { SYMBOLS, colorize } from '../utils/ui.js';
-
-// Inisialisasi Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+import { getGeminiModel, getActiveModelName, fallbackToNextModel } from './gemini.js';
+import { SYMBOLS, colorize, warning, info } from '../utils/ui.js';
 
 const SYSTEM_PROMPT = `Kamu adalah asisten AI yang membantu mahasiswa dalam menggunakan Mentari LMS Auto-Pilot CLI. 
 Kamu bisa membantu dengan:
@@ -20,6 +15,8 @@ let conversationHistory = [];
 
 export async function chatWithAI(userMessage) {
     try {
+        const model = getGeminiModel();
+
         // Tambah pesan user ke history
         conversationHistory.push({
             role: 'user',
@@ -34,7 +31,10 @@ export async function chatWithAI(userMessage) {
 
         // Generate response
         const chat = model.startChat({
-            history: messages.slice(0, -1), // Semua history kecuali pesan terakhir
+            history: messages.slice(0, -1),
+            systemInstruction: {
+                parts: [{ text: SYSTEM_PROMPT }]
+            },
             generationConfig: {
                 maxOutputTokens: 1024,
             }
@@ -55,8 +55,37 @@ export async function chatWithAI(userMessage) {
         }
 
         return responseText;
-    } catch (error) {
-        console.error(`${colorize(SYMBOLS.error, 'red')} AI Error: ${error.message}`);
+    } catch (err) {
+        const msg = err.message || '';
+        if (msg.includes('429')) {
+            console.log(warning('Quota model habis, mencoba model lain...'));
+            const newModel = await fallbackToNextModel();
+            if (newModel) {
+                console.log(info(`Beralih ke model: ${newModel}`));
+                // Hapus pesan user terakhir dari history supaya tidak duplikat
+                conversationHistory.pop();
+                // Retry SEKALI dengan model baru — tanpa rekursi
+                try {
+                    const retryModel = getGeminiModel();
+                    const retryChat = retryModel.startChat({
+                        history: conversationHistory.map(m => ({ role: m.role, parts: m.parts })),
+                        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                        generationConfig: { maxOutputTokens: 1024 }
+                    });
+                    const retryResult = await retryChat.sendMessage(userMessage);
+                    const retryText = retryResult.response.text();
+                    conversationHistory.push({ role: 'user',  parts: [{ text: userMessage }] });
+                    conversationHistory.push({ role: 'model', parts: [{ text: retryText }] });
+                    if (conversationHistory.length > 10) conversationHistory = conversationHistory.slice(-10);
+                    return retryText;
+                } catch {
+                    return null;
+                }
+            }
+            console.log(warning('Semua model quota habis. Coba lagi nanti.'));
+            return null;
+        }
+        console.log(`${colorize(SYMBOLS.error, 'red')} AI Error: ${msg.substring(0, 120)}`);
         return null;
     }
 }

@@ -1,9 +1,29 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import 'dotenv/config';
+import { getGeminiModel, fallbackToNextModel } from './gemini.js';
+import { warning, info } from '../utils/ui.js';
 
-// Inisialisasi Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+/**
+ * Helper: jalankan prompt dengan auto-fallback saat 429
+ */
+async function generateWithFallback(promptText) {
+    const model = getGeminiModel();
+    try {
+        const result = await model.generateContent(promptText);
+        return result.response.text().trim();
+    } catch (e) {
+        const msg = e.message || '';
+        if (msg.includes('429')) {
+            console.log(warning('Quota model habis, mencoba model lain...'));
+            const newModel = await fallbackToNextModel();
+            if (newModel) {
+                console.log(info(`Beralih ke model: ${newModel}`));
+                const retryModel = getGeminiModel();
+                const retryResult = await retryModel.generateContent(promptText);
+                return retryResult.response.text().trim();
+            }
+        }
+        throw e;
+    }
+}
 
 /**
  * Fungsi untuk mencari jawaban Kuis Pilihan Ganda
@@ -22,10 +42,9 @@ export async function getJawabanKuisAI(teksSoal, listOpsi) {
     OUTPUT HANYA STRING ID DARI JAWABAN YANG BENAR, TANPA PENJELASAN APAPUN.`;
 
     try {
-        const result = await model.generateContent(prompt);
-        return result.response.text().trim();
+        return await generateWithFallback(prompt);
     } catch (error) {
-        console.error("❌ AI Gagal merespon kuis:", error.message);
+        console.log(warning(`AI Gagal merespon kuis: ${error.message.substring(0, 80)}`));
         return null;
     }
 }
@@ -44,10 +63,9 @@ export async function getJawabanForumAI(teksTopik, instruksiTambahan = "") {
     OUTPUT HANYA TEKS BALASAN FORUM, TANPA KUTIPAN ATAU FORMAT MARKDOWN.`;
 
     try {
-        const result = await model.generateContent(prompt);
-        return result.response.text().trim();
+        return await generateWithFallback(prompt);
     } catch (error) {
-        console.error("❌ AI Gagal merespon forum:", error.message);
-        return "Izin menyimak materi dari Bapak/Ibu dosen."; // Fallback jawaban aman
+        console.log(warning(`AI Gagal merespon forum: ${error.message.substring(0, 80)}`));
+        return "Izin menyimak materi dari Bapak/Ibu dosen.";
     }
 }
