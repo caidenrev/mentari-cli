@@ -11,6 +11,10 @@
 ╚═╝     ╚═╝╚══════╝╚═╝   ╚═══╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═════╝╚══════╝╚═╝
 ```
 
+[![npm version](https://img.shields.io/npm/v/mentari-cli.svg)](https://www.npmjs.com/package/mentari-cli)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ---
 
 ## Daftar Isi
@@ -19,17 +23,10 @@
 - [Fitur](#fitur)
 - [Prasyarat](#prasyarat)
 - [Instalasi](#instalasi)
-- [Konfigurasi](#konfigurasi)
+- [Setup Pertama Kali](#setup-pertama-kali)
 - [Cara Penggunaan](#cara-penggunaan)
-  - [Login](#login)
-  - [Menu Utama](#menu-utama)
-  - [Scan Tugas Pending](#scan-tugas-pending)
-  - [Auto-Pilot Eksekusi](#auto-pilot-eksekusi)
-  - [Chat Bot Asisten AI](#chat-bot-asisten-ai)
-  - [Ganti Model AI](#ganti-model-ai)
-- [Struktur Project](#struktur-project)
-- [Alur Teknis](#alur-teknis)
 - [Catatan Penting](#catatan-penting)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -37,7 +34,7 @@
 
 MENTARI CLI adalah tools otomasi berbasis Node.js untuk mahasiswa UNPAM yang menggunakan LMS Mentari. CLI ini mengotomasi pekerjaan berulang seperti mengerjakan pre-test, post-test, forum diskusi, dan mengisi kuesioner absensi — semuanya dibantu oleh AI Gemini.
 
-Login dilakukan melalui browser Chromium yang dibuka otomatis (via Puppeteer), sehingga Cloudflare tidak memblokir akses. Semua request API dijalankan dari dalam browser yang sama untuk memastikan sesi tetap valid.
+Login dilakukan melalui browser Chrome yang dibuka otomatis, sehingga Cloudflare tidak memblokir akses. Semua request API dijalankan dari dalam browser yang sama untuk memastikan sesi tetap valid.
 
 ---
 
@@ -54,37 +51,47 @@ Login dilakukan melalui browser Chromium yang dibuka otomatis (via Puppeteer), s
 | **Eksekusi Penuh** | Jalankan semua tahap sekaligus dalam satu klik |
 | **Chat Bot AI** | Tanya jawab dengan AI Gemini langsung dari CLI |
 | **Ganti Model AI** | Pilih model Gemini yang tersedia sesuai quota |
-| **Discovery Mode** | Sniff endpoint API Mentari langsung dari browser |
 | **Auto-Reauth** | Token expired otomatis meminta login ulang tanpa restart |
 
 ---
 
 ## Prasyarat
 
-- **Node.js** v18 atau lebih baru — [nodejs.org](https://nodejs.org)
-- **Google Chrome** atau Microsoft Edge — sudah terinstall di device
-- **Akun Gemini AI Studio** untuk API key gratis — [aistudio.google.com](https://aistudio.google.com/app/apikey)
-- Akun mahasiswa aktif di LMS Mentari UNPAM
+Pastikan semua ini sudah ada di device sebelum install:
 
-> CLI menggunakan Chrome/Edge yang sudah ada di device kamu — tidak perlu download browser tambahan.
+| Kebutuhan | Versi | Link |
+|-----------|-------|------|
+| **Node.js** | v18 atau lebih baru | [nodejs.org/en/download](https://nodejs.org/en/download) |
+| **Google Chrome** atau **Microsoft Edge** | Versi terbaru | [google.com/chrome](https://www.google.com/chrome) |
+| **Gemini API Key** | Gratis | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| **Akun LMS Mentari** | Aktif | mentari.unpam.ac.id |
+
+> CLI menggunakan Chrome/Edge yang sudah ada di device — **tidak perlu download browser tambahan**.
+
+### Cek Node.js sudah terinstall
+
+```bash
+node --version
+# Harus muncul: v18.x.x atau lebih baru
+```
+
+Kalau belum ada, download di [nodejs.org](https://nodejs.org) → pilih versi **LTS**.
 
 ---
 
 ## Instalasi
 
-### Via npm (Direkomendasikan)
+### Install Global (Sekali, Pakai Selamanya)
 
 ```bash
 npm install -g mentari-cli
 ```
 
-Setelah install, jalankan dari mana saja:
+Tunggu hingga selesai (~30 detik), lalu langsung jalankan:
 
 ```bash
 mentari
 ```
-
-> Instalasi ringan — tidak download browser tambahan. CLI otomatis menggunakan Google Chrome atau Microsoft Edge yang sudah ada di device kamu.
 
 ### Update ke Versi Terbaru
 
@@ -92,52 +99,21 @@ mentari
 npm update -g mentari-cli
 ```
 
-### Via Clone (Development)
+### Uninstall
 
 ```bash
-git clone <repo-url>
-cd mentari-cli
-npm install
-node src/index.js
+npm uninstall -g mentari-cli
 ```
 
 ---
 
-## Update ke Versi Terbaru
+## Setup Pertama Kali
 
-```bash
-npm update -g mentari-cli
-```
+Saat pertama kali menjalankan `mentari`, ada dua langkah setup otomatis:
 
----
+### Langkah 1 — Gemini API Key
 
-## Konfigurasi
-
-Tidak perlu setup manual apapun. Semua konfigurasi dikelola otomatis oleh CLI:
-
-- **Token LMS** — ditangkap otomatis saat login via browser
-- **Gemini API Key** — dimasukkan sekali saat pertama kali jalan, disimpan otomatis
-- **Model AI** — dideteksi otomatis dari API key yang dimasukkan
-
-File `.env` dibuat dan dikelola sendiri oleh CLI di background. User tidak perlu menyentuhnya.
-
----
-
-## Cara Penggunaan
-
-### Menjalankan CLI
-
-```bash
-node src/index.js
-```
-
----
-
-### Setup Pertama Kali
-
-Saat pertama kali dijalankan, CLI akan melakukan dua setup otomatis:
-
-#### 1. Setup Gemini API Key
+CLI akan meminta API key untuk fitur AI:
 
 ```
 ┌─ SETUP GEMINI API KEY ──────────────────────────────────────┐
@@ -151,9 +127,17 @@ Saat pertama kali dijalankan, CLI akan melakukan dua setup otomatis:
 ✓ API Key valid! Model terdeteksi: gemini-2.5-flash
 ```
 
-Buka [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey), buat API key gratis, lalu paste ke CLI. Key disimpan permanen — tidak perlu dimasukkan lagi di sesi berikutnya.
+**Cara dapat API key:**
+1. Buka [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+2. Login dengan akun Google
+3. Klik **Create API Key**
+4. Copy key yang muncul, paste ke CLI
 
-#### 2. Login LMS Mentari
+Key disimpan permanen di device — tidak perlu dimasukkan lagi di sesi berikutnya.
+
+---
+
+### Langkah 2 — Login LMS Mentari
 
 ```
 ┌─ AUTENTIKASI MENTARI CLI ──────────────────────────────────┐
@@ -164,11 +148,16 @@ Buka [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/ap
 └────────────────────────────────────────────────────────────┘
 ```
 
-Browser Chromium terbuka otomatis → login dengan NIM dan password → CLI menangkap token secara otomatis. Tidak perlu copy-paste apapun.
+1. Browser Chrome terbuka otomatis ke halaman login Mentari
+2. Login dengan **NIM** dan **password** seperti biasa
+3. CLI otomatis mendeteksi token — tidak perlu copy-paste apapun
+4. Browser tetap terbuka di background (jangan ditutup)
 
-> **Penting:** Jangan tutup browser Chromium yang terbuka. Browser ini dipakai untuk semua request API agar tidak diblokir Cloudflare.
+Setelah dua langkah ini selesai, CLI langsung masuk ke menu utama dan siap digunakan.
 
 ---
+
+## Cara Penggunaan
 
 ### Menu Utama
 
@@ -188,13 +177,14 @@ Browser Chromium terbuka otomatis → login dengan NIM dan password → CLI mena
 └───────────────────────────────────────────────────────────────┘
 ```
 
+Navigasi menggunakan tombol **↑ ↓** dan **Enter**.
+
 ---
 
 ### Scan Tugas Pending
 
-Memindai semua mata kuliah dan menampilkan pertemuan yang belum tuntas (forum ada tapi kuesioner belum diisi).
+Memindai semua mata kuliah dan menampilkan pertemuan yang belum tuntas.
 
-Output contoh:
 ```
 ┌─ MATA KULIAH: [2] KERJA PRAKTEK # 06TPLP017 ─┐
 │  Kode: 20252-06TPLP017-22TIF0332             │
@@ -210,14 +200,9 @@ Output contoh:
 
 ### Auto-Pilot Eksekusi
 
-Pilih mata kuliah dan pertemuan, lalu pilih tahap yang ingin dieksekusi:
+Pilih mata kuliah → masukkan nomor pertemuan → pilih tahap:
 
 ```
-┌─ AUTO-PILOT • [2] KERJA PRAKTEK ─────────────┐
-│  Pertemuan 5                                  │
-│  Pilih tahap yang ingin dieksekusi:           │
-└───────────────────────────────────────────────┘
-
 ● [1] Pre-Test
 ● [2] Forum Diskusi
 ● [3] Post-Test
@@ -225,178 +210,57 @@ Pilih mata kuliah dan pertemuan, lalu pilih tahap yang ingin dieksekusi:
 ────────────────────────────────────────
 ▶ Eksekusi Semua Tahap Sekaligus
 ────────────────────────────────────────
-ⓘ Discovery Mode (cari endpoint API)
-────────────────────────────────────────
 └ Kembali ke Menu Utama
 ```
 
-#### Urutan Eksekusi yang Benar
-
-LMS Mentari memiliki prasyarat berurutan:
+**Urutan yang harus diikuti:**
 
 ```
-Pre-Test → Forum Diskusi → Post-Test → Kuesioner
+Pre-Test  →  Forum Diskusi  →  Post-Test  →  Kuesioner
 ```
 
-Setiap tahap hanya bisa dikerjakan setelah tahap sebelumnya selesai.
-
-#### Discovery Mode
-
-Jika ada tahap yang gagal karena endpoint API berubah, gunakan Discovery Mode:
-
-1. Browser akan membuka halaman pertemuan
-2. Klik modul yang ingin di-sniff (Pretest, Kuesioner, Forum, dll)
-3. CLI menangkap semua request dan response API selama 90 detik
-4. Endpoint yang valid akan ditampilkan
+Setiap tahap hanya bisa dikerjakan setelah tahap sebelumnya selesai. Gunakan **Eksekusi Semua Tahap Sekaligus** untuk menjalankan semua secara otomatis berurutan.
 
 ---
 
 ### Chat Bot Asisten AI
 
-Chat langsung dengan AI Gemini dari dalam CLI:
-
 ```
-┌─ CHAT BOT ASISTEN AI ──────────────────────────┐
-│  Model  : gemini-2.5-flash                     │
-│  ketik "/model" untuk ganti  •  "keluar" balik │
-└────────────────────────────────────────────────┘
-
 ❯ apa itu LMS Mentari?
 
 ┌─ Bot ──────────────────────────────────────────┐
 │ LMS Mentari adalah platform pembelajaran       │
-│ daring milik Universitas Pamulang (UNPAM)      │
-│ yang digunakan untuk perkuliahan online.       │
+│ daring milik Universitas Pamulang (UNPAM).     │
 └────────────────────────────────────────────────┘
 ```
 
-Perintah khusus di dalam chat:
-- `keluar` — kembali ke menu utama
-- `/model` — ganti model AI tanpa keluar dari chat
+- Ketik `keluar` untuk kembali ke menu utama
+- Ketik `/model` untuk ganti model AI
 
 ---
 
 ### Ganti Model AI
 
-Menampilkan semua model Gemini yang tersedia untuk API key kamu beserta status quota-nya:
+Tampilkan semua model Gemini yang tersedia beserta status quota:
 
 ```
 ● gemini-2.5-pro        ● tersedia
 ● gemini-2.5-flash      ● tersedia  ← aktif
 ● gemini-2.0-flash      ⚠ quota habis
-● gemini-2.0-flash-lite ⚠ quota habis
 ↩ Batal
 ```
 
-Model yang dipilih disimpan ke `.env` dan dipakai untuk semua fitur AI (quiz, forum, chat).
-
----
-
-## Struktur Project
-
-```
-mentari-cli/
-├── src/
-│   ├── index.js              # Entry point, menu utama, loop aplikasi
-│   ├── api/
-│   │   ├── client.js         # HTTP client (Node.js fetch + Puppeteer fallback)
-│   │   ├── browser-client.js # Puppeteer page instance & fetch via browser
-│   │   └── lms.js            # Helper API LMS (unused/legacy)
-│   ├── services/
-│   │   ├── auth.js           # Login via Puppeteer + input manual fallback
-│   │   ├── gemini.js         # Setup API key, deteksi model, switch model
-│   │   ├── ai.js             # Jawaban kuis & forum via Gemini
-│   │   ├── chat.js           # Chat bot dengan conversation history
-│   │   ├── autopilot.js      # Eksekusi pre-test, forum, post-test, kuesioner
-│   │   └── scanner.js        # Scan tugas pending semua mata kuliah
-│   └── utils/
-│       ├── ui.js             # Komponen UI: box, bubble chat, warna, simbol
-│       └── helpers.js        # Helper umum
-├── .env                      # Token & config (auto-generated)
-├── package.json
-└── README.md
-```
-
----
-
-## Alur Teknis
-
-### Autentikasi
-
-```
-node src/index.js
-    │
-    ├─ Cek .env → ada BEARER_TOKEN?
-    │   ├─ Ya  → coba request ke /user-course
-    │   │         ├─ 200 OK → lanjut ke menu
-    │   │         └─ 403    → buka browser login
-    │   └─ Tidak → buka browser login
-    │
-    └─ Browser Login (Puppeteer)
-        ├─ Buka mentari.unpam.ac.id
-        ├─ User login manual (CF happy)
-        ├─ Intercept Authorization header dari network request
-        ├─ Simpan token ke .env + process.env
-        └─ Browser tetap terbuka → setBrowserPage()
-```
-
-### Request API
-
-```
-fetchMentari(endpoint)
-    │
-    ├─ hasBrowserPage() = true?
-    │   └─ fetchViaBrowser() → page.evaluate(fetch) → CF bypass ✓
-    │
-    └─ hasBrowserPage() = false?
-        └─ fetchNode() → Node.js fetch → mungkin kena CF ✗
-```
-
-### Auto-Pilot Quiz
-
-```
-eksekusiKuis(idModul)
-    │
-    ├─ PUT /quiz/start/{id}     → buka sesi quiz
-    ├─ GET /quiz/soal/{id}      → ambil daftar soal
-    ├─ Loop setiap soal:
-    │   └─ AI Gemini → pilih jawaban terbaik
-    │   └─ PUT /quiz/jawab      → kirim jawaban
-    └─ PUT /quiz/end            → selesaikan quiz
-```
-
-### Auto-Pilot Kuesioner
-
-```
-eksekusiKuesioner()
-    │
-    ├─ GET /kuesioner/{kode}/{section}  → ambil pertanyaan
-    └─ POST /kuesioner/submit           → kirim semua jawaban (nilai 1 = Sangat Setuju)
-```
+Quota Gemini free tier reset setiap hari pukul **07:00 WIB**.
 
 ---
 
 ## Catatan Penting
 
-### Cloudflare Protection
+### Jangan Tutup Browser
 
-LMS Mentari dilindungi Cloudflare. Token yang diambil dari Puppeteer tidak bisa dipakai di Node.js fetch biasa karena terikat ke TLS fingerprint browser. Oleh karena itu:
-
-- Semua request API dijalankan dari dalam Puppeteer (`page.evaluate`)
-- Browser Chromium harus tetap terbuka selama CLI digunakan
-- Jika browser ditutup, CLI akan meminta login ulang otomatis
-
-### Quota Gemini Free Tier
-
-Model Gemini free tier memiliki batas request per hari. Jika quota habis:
-
-1. CLI otomatis mencoba model berikutnya (fallback)
-2. Atau gunakan menu **Ganti Model AI** untuk pilih model yang masih tersedia
-3. Quota reset setiap hari pukul 00:00 UTC (07:00 WIB)
+Browser Chrome yang terbuka saat login **harus tetap terbuka** selama CLI digunakan. Browser ini dipakai untuk semua request API agar tidak diblokir Cloudflare. Jika ditutup, CLI akan meminta login ulang.
 
 ### Urutan Tahap LMS
-
-LMS Mentari memiliki prasyarat ketat:
 
 | Tahap | Prasyarat |
 |-------|-----------|
@@ -404,17 +268,52 @@ LMS Mentari memiliki prasyarat ketat:
 | Post-Test | Forum Diskusi selesai |
 | Kuesioner/Absensi | Post-Test selesai |
 
-Gunakan **Eksekusi Semua Tahap Sekaligus** untuk menjalankan semua tahap secara berurutan otomatis.
+### Quota Gemini Free Tier
 
-### Token Expired
+Jika muncul pesan "quota habis", gunakan menu **Ganti Model AI** untuk beralih ke model lain yang masih tersedia, atau tunggu reset quota jam 07:00 WIB.
 
-Jika token expired di tengah proses:
-- CLI otomatis mendeteksi error 403
-- Browser login terbuka kembali
-- Setelah login ulang, proses dilanjutkan dari titik yang sama
+---
+
+## Troubleshooting
+
+### `mentari` tidak dikenali setelah install
+
+```bash
+# Cek apakah npm global bin ada di PATH
+npm config get prefix
+# Tambahkan <prefix>/bin ke PATH sistem kamu
+```
+
+Atau coba install ulang:
+```bash
+npm uninstall -g mentari-cli
+npm install -g mentari-cli
+```
+
+### Browser tidak terbuka otomatis
+
+Pastikan Google Chrome atau Microsoft Edge sudah terinstall. CLI mencari browser di lokasi default:
+- **Windows:** `C:\Program Files\Google\Chrome\...`
+- **macOS:** `/Applications/Google Chrome.app/...`
+- **Linux:** `/usr/bin/google-chrome`
+
+### Login gagal / token tidak terdeteksi
+
+Jika login otomatis gagal, CLI akan beralih ke mode input manual:
+```
+Paste BEARER_TOKEN: <dari F12 → Network → Authorization header>
+Paste CF_CLEARANCE: <dari F12 → Network → Cookie header>
+```
+
+### Quota AI habis semua
+
+Semua model Gemini free tier punya limit harian. Jika semua habis:
+1. Tunggu reset jam 07:00 WIB
+2. Atau upgrade ke Gemini API berbayar di [aistudio.google.com](https://aistudio.google.com)
 
 ---
 
 ## Dibuat oleh
 
-**Revan** — MENTARI CLI v2.0
+**Revan** — MENTARI CLI v2.0  
+[npmjs.com/package/mentari-cli](https://www.npmjs.com/package/mentari-cli)
