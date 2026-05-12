@@ -1,15 +1,26 @@
 import fs from 'fs';
+import http from 'http';
 import path from 'path';
+import { exec } from 'child_process';
 import inquirer from 'inquirer';
-import { colorize, bold, drawBox, success as uiSuccess, info, warning, SYMBOLS } from '../utils/ui.js';
+import { colorize, bold, drawBox, success as uiSuccess, info, warning, error as uiError, SYMBOLS } from '../utils/ui.js';
 import { setBrowserPage } from '../api/browser-client.js';
 
-const MENTARI_URL = 'https://mentari.unpam.ac.id';
+const MENTARI_URL    = 'https://mentari.unpam.ac.id';
+const CALLBACK_PORT  = 3847;
 
-// ─── Auto-detect Chrome/Chromium di device user ───────────────────────────────
+// ─── Deteksi environment ──────────────────────────────────────────────────────
+function isAndroid() {
+    return process.platform === 'linux' && (
+        fs.existsSync('/data/data/com.termux') ||
+        fs.existsSync('/data/data/com.termux.api') ||
+        process.env.TERMUX_VERSION !== undefined ||
+        process.env.PREFIX?.includes('com.termux')
+    );
+}
+
+// ─── Auto-detect Chrome/Chromium di desktop ───────────────────────────────────
 function findChromePath() {
-    const platform = process.platform;
-
     const candidates = {
         win32: [
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -33,15 +44,214 @@ function findChromePath() {
             '/usr/bin/microsoft-edge',
         ],
     };
-
-    const paths = candidates[platform] || candidates.linux;
+    const paths = candidates[process.platform] || candidates.linux;
     for (const p of paths) {
         if (p && fs.existsSync(p)) return p;
     }
     return null;
 }
 
-// ─── Login via Puppeteer ──────────────────────────────────────────────────────
+// ─── Buka URL di browser default OS ──────────────────────────────────────────
+function openUrl(url) {
+    const cmd = process.platform === 'win32'  ? `start "" "${url}"` :
+                process.platform === 'darwin' ? `open "${url}"` :
+                isAndroid()                   ? `termux-open-url "${url}"` :
+                                                `xdg-open "${url}"`;
+    exec(cmd, () => {});
+}
+
+// ─── Local callback server untuk Android ─────────────────────────────────────
+function startCallbackServer(timeoutMs = 180000) {
+    return new Promise((resolve, reject) => {
+
+        // HTML halaman helper — user buka ini dulu, lalu klik tombol Login
+        const helperPage = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mentari CLI Login</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #0d1117; color: #e6edf3;
+         display: flex; flex-direction: column; align-items: center;
+         justify-content: center; min-height: 100vh; padding: 20px; }
+  h1 { color: #ff8c00; font-size: 1.2rem; margin-bottom: 8px; }
+  p  { color: #8b949e; font-size: 0.85rem; margin-bottom: 24px; text-align: center; }
+  .btn { background: #ff8c00; color: #000; border: none; padding: 14px 28px;
+         font-size: 1rem; font-family: monospace; border-radius: 6px;
+         cursor: pointer; width: 100%; max-width: 320px; font-weight: bold; }
+  .btn:active { opacity: 0.8; }
+  .status { margin-top: 20px; color: #58a6ff; font-size: 0.9rem; text-align: center; }
+  .success { color: #3fb950; }
+  .error   { color: #f85149; }
+</style>
+</head>
+<body>
+<h1>MENTARI CLI</h1>
+<p>Klik tombol di bawah untuk login ke LMS Mentari.<br>
+Token akan otomatis dikirim ke CLI setelah login.</p>
+<button class="btn" onclick="startLogin()">🔐 Login ke Mentari</button>
+<div class="status" id="status"></div>
+<script>
+const CLI_PORT = ${CALLBACK_PORT};
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + (type || '');
+}
+
+function grabToken() {
+  let bearer = null, cf = null;
+  for (const store of [localStorage, sessionStorage]) {
+    for (const key of Object.keys(store)) {
+      try {
+        const val = store.getItem(key);
+        if (!val) continue;
+        try {
+          const obj = JSON.parse(val);
+          for (const t of [obj?.token, obj?.access_token, obj?.accessToken, obj?.data?.token]) {
+            if (t && typeof t === 'string' && t.startsWith('eyJ') && t.length > 50) {
+              bearer = t; break;
+            }
+          }
+        } catch {
+          if (val.startsWith('eyJ') && val.length > 50) bearer = val;
+        }
+      } catch {}
+      if (bearer) break;
+    }
+    if (bearer) break;
+  }
+  for (const c of document.cookie.split(';')) {
+    const [k, v] = c.trim().split('=');
+    if (k === 'cf_clearance') { cf = v; break; }
+  }
+  return { bearer, cf };
+}
+
+function sendToken(bearer, cf) {
+  fetch('http://127.0.0.1:' + CLI_PORT + '/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bearer, cf: cf || '' })
+  })
+  .then(r => r.json())
+  .then(() => {
+    setStatus('✓ Token berhasil dikirim! Kembali ke Termux.', 'success');
+    document.querySelector('.btn').textContent = '✓ Selesai';
+    document.querySelector('.btn').disabled = true;
+  })
+  .catch(() => setStatus('Gagal kirim token. Pastikan CLI masih berjalan.', 'error'));
+}
+
+function startLogin() {
+  // Buka Mentari di tab baru
+  const win = window.open('https://mentari.unpam.ac.id', '_blank');
+  setStatus('Silakan login di tab yang terbuka...', '');
+
+  // Poll setiap 2 detik untuk cek apakah sudah login
+  const interval = setInterval(() => {
+    try {
+      // Cek localStorage di tab Mentari
+      const { bearer } = grabToken();
+      if (bearer) {
+        clearInterval(interval);
+        setStatus('Token ditemukan! Mengirim ke CLI...', '');
+        const { cf } = grabToken();
+        sendToken(bearer, cf);
+        return;
+      }
+    } catch {}
+
+    // Coba ambil dari tab Mentari yang terbuka
+    try {
+      if (win && !win.closed) {
+        const ls = win.localStorage;
+        for (const key of Object.keys(ls)) {
+          try {
+            const val = ls.getItem(key);
+            if (!val) continue;
+            try {
+              const obj = JSON.parse(val);
+              for (const t of [obj?.token, obj?.access_token, obj?.accessToken, obj?.data?.token]) {
+                if (t && typeof t === 'string' && t.startsWith('eyJ') && t.length > 50) {
+                  clearInterval(interval);
+                  setStatus('Token ditemukan! Mengirim ke CLI...', '');
+                  sendToken(t, '');
+                  return;
+                }
+              }
+            } catch {}
+          } catch {}
+        }
+      }
+    } catch {}
+  }, 2000);
+
+  // Timeout 5 menit
+  setTimeout(() => {
+    clearInterval(interval);
+    setStatus('Timeout. Coba lagi.', 'error');
+  }, 300000);
+}
+</script>
+</body>
+</html>`;
+
+        const server = http.createServer((req, res) => {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+            if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+            // Halaman helper utama
+            if (req.method === 'GET' && (req.url === '/' || req.url === '/login')) {
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(helperPage);
+                return;
+            }
+
+            // Endpoint terima token dari browser
+            if (req.method === 'POST' && req.url === '/token') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; });
+                req.on('end', () => {
+                    try {
+                        const data = JSON.parse(body);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: true }));
+                        server.close();
+                        clearTimeout(timer);
+                        resolve(data);
+                    } catch {
+                        res.writeHead(400); res.end('Bad Request');
+                    }
+                });
+                return;
+            }
+
+            res.writeHead(404); res.end();
+        });
+
+        server.listen(CALLBACK_PORT, '127.0.0.1', () => {});
+        server.on('error', (e) => reject(e));
+
+        const timer = setTimeout(() => {
+            server.close();
+            reject(new Error('Timeout: token tidak diterima dalam 3 menit.'));
+        }, timeoutMs);
+    });
+}
+
+// ─── Script yang dijalankan di Console browser untuk kirim token ──────────────
+function buildConsoleScript() {
+    return `(function(){let b=null,c=null;for(const k of Object.keys(localStorage)){try{const v=localStorage.getItem(k);if(!v)continue;try{const o=JSON.parse(v);for(const t of[o?.token,o?.access_token,o?.accessToken,o?.data?.token]){if(t&&t.startsWith&&t.startsWith('eyJ')&&t.length>50){b=t;break;}}}catch{if(v.startsWith('eyJ')&&v.length>50)b=v;}}catch{} if(b)break;}for(const x of document.cookie.split(';')){const[k,v]=x.trim().split('=');if(k==='cf_clearance')c=v;}if(!b){alert('Token tidak ditemukan. Coba refresh halaman dulu.');return;}fetch('http://127.0.0.1:${CALLBACK_PORT}/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bearer:b,cf:c||''})}).then(()=>alert('✓ Token berhasil! Kembali ke Termux.')).catch(()=>alert('Gagal kirim token.'));})();`;
+}
+
+// ─── Login via Puppeteer (Desktop) ───────────────────────────────────────────
 async function loginViaBrowser() {
     let puppeteer;
     try {
@@ -49,39 +259,29 @@ async function loginViaBrowser() {
         const stealth = await import('puppeteer-extra-plugin-stealth');
         extra.default.use(stealth.default());
         puppeteer = extra.default;
-    } catch {
-        return null;
-    }
+    } catch { return null; }
 
-    // Cari Chrome/Edge yang sudah ada di device
     const chromePath = findChromePath();
     if (!chromePath) {
-        console.log(warning('Chrome/Edge tidak ditemukan di device ini.'));
-        console.log(info('Install Google Chrome lalu coba lagi: https://www.google.com/chrome'));
+        console.log(warning('Chrome/Edge tidak ditemukan.'));
         return null;
     }
 
-    console.log(info(`Menggunakan browser: ${chromePath}`));
+    console.log(info(`Browser: ${chromePath}`));
     console.log(info('Membuka browser... Silakan login seperti biasa.'));
-    console.log(colorize('  (Browser akan tetap terbuka di background setelah login)', 'gray'));
     console.log('');
 
     let browser;
     try {
         browser = await puppeteer.launch({
             headless: false,
-            executablePath: chromePath,   // Pakai Chrome user, bukan Chromium download
+            executablePath: chromePath,
             defaultViewport: null,
-            args: [
-                '--start-maximized',
-                '--no-sandbox',
-                '--disable-blink-features=AutomationControlled',
-            ],
+            args: ['--start-maximized', '--no-sandbox', '--disable-blink-features=AutomationControlled'],
             ignoreDefaultArgs: ['--enable-automation'],
         });
 
         const page = (await browser.pages())[0] || await browser.newPage();
-
         await page.evaluateOnNewDocument(() => {
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
         });
@@ -89,9 +289,7 @@ async function loginViaBrowser() {
         await page.goto(MENTARI_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
         console.log(info('Browser terbuka. Silakan login...'));
 
-        // Tunggu token — race antara network intercept dan localStorage polling
         const token = await Promise.race([
-            // Cara 1: intercept Authorization header dari network request
             new Promise((resolve) => {
                 page.on('request', async (req) => {
                     try {
@@ -105,8 +303,6 @@ async function loginViaBrowser() {
                     } catch {}
                 });
             }),
-
-            // Cara 2: polling localStorage
             new Promise((resolve) => {
                 const interval = setInterval(async () => {
                     try {
@@ -130,7 +326,6 @@ async function loginViaBrowser() {
                             }
                             return null;
                         });
-
                         if (result?.bearer) {
                             clearInterval(interval);
                             const cookies = await page.cookies();
@@ -139,13 +334,11 @@ async function loginViaBrowser() {
                         }
                     } catch {}
                 }, 2000);
-
                 setTimeout(() => { clearInterval(interval); resolve(null); }, 300000);
             }),
         ]);
 
         if (token?.page) {
-            // Simpan page instance — JANGAN tutup browser
             setBrowserPage(token.page);
             return { bearer: token.bearer, cf: token.cf };
         }
@@ -160,24 +353,88 @@ async function loginViaBrowser() {
     }
 }
 
-// ─── Main auth flow ───────────────────────────────────────────────────────────
-export async function startAuthServer() {
+// ─── Login via Callback Server (Android/Termux) ───────────────────────────────
+async function loginViaCallback() {
+    const helperUrl = `http://127.0.0.1:${CALLBACK_PORT}/login`;
+
     console.log('');
-    console.log(drawBox('AUTENTIKASI MENTARI CLI', [
-        `  ${SYMBOLS.process} Browser akan terbuka otomatis`,
-        `  ${SYMBOLS.process} Login dengan NIM dan password seperti biasa`,
-        `  ${SYMBOLS.process} CLI otomatis mendeteksi token — tidak perlu copy-paste`,
-        `  ${colorize('Browser tetap terbuka di background untuk bypass Cloudflare', 'green')}`,
+    console.log(drawBox('LOGIN VIA CHROME ANDROID', [
+        `  ${SYMBOLS.process} Halaman login akan terbuka di Chrome`,
+        `  ${SYMBOLS.process} Klik tombol "Login ke Mentari"`,
+        `  ${SYMBOLS.process} Login dengan NIM dan password`,
+        `  ${SYMBOLS.process} Token otomatis terkirim ke CLI`,
+        `  ${colorize('Tidak perlu copy-paste apapun!', 'green')}`,
     ], 'orange'));
     console.log('');
 
-    const result = await loginViaBrowser();
+    // Start server dulu sebelum buka browser
+    const tokenPromise = startCallbackServer().catch(() => null);
 
-    if (result?.bearer) {
-        const cleanBearer = result.bearer.replace(/^Bearer\s+/i, '').trim();
-        const cleanCf     = (result.cf || '').trim();
-        updateEnvFile(cleanBearer, cleanCf);
-        return { bearerToken: cleanBearer, cfClearance: cleanCf };
+    // Buka halaman helper di Chrome Android
+    const helperUrlDisplay = `http://127.0.0.1:${CALLBACK_PORT}/login`;
+    console.log(info('Membuka halaman login...'));
+    console.log('');
+    console.log(colorize(`  URL: ${bold(colorize(helperUrlDisplay, 'orange'))}`, 'gray'));
+    console.log('');
+
+    openUrl(helperUrl);
+
+    console.log(info('Menunggu token dari browser... (timeout 3 menit)'));
+    console.log(warning('Ketik "manual" jika ingin input token manual.'));
+    console.log('');
+
+    const { input } = await inquirer.prompt([{
+        type: 'input',
+        name: 'input',
+        message: colorize('Tekan Enter untuk tunggu, atau ketik "manual":', 'orange'),
+    }]);
+
+    if (input.trim().toLowerCase() === 'manual') return null;
+
+    const result = await tokenPromise;
+    return result;
+}
+
+// ─── Main auth flow ───────────────────────────────────────────────────────────
+export async function startAuthServer() {
+    console.log('');
+
+    const android = isAndroid();
+
+    if (android) {
+        // Flow Android/Termux
+        console.log(drawBox('AUTENTIKASI MENTARI CLI', [
+            `  ${SYMBOLS.process} Mode: Android / Termux`,
+            `  ${SYMBOLS.process} Login via Chrome Android`,
+            `  ${SYMBOLS.process} Token ditangkap otomatis via localhost`,
+        ], 'orange'));
+        console.log('');
+
+        const result = await loginViaCallback();
+        if (result?.bearer) {
+            const cleanBearer = result.bearer.replace(/^Bearer\s+/i, '').trim();
+            const cleanCf     = (result.cf || '').trim();
+            updateEnvFile(cleanBearer, cleanCf);
+            return { bearerToken: cleanBearer, cfClearance: cleanCf };
+        }
+
+    } else {
+        // Flow Desktop — Puppeteer
+        console.log(drawBox('AUTENTIKASI MENTARI CLI', [
+            `  ${SYMBOLS.process} Browser akan terbuka otomatis`,
+            `  ${SYMBOLS.process} Login dengan NIM dan password seperti biasa`,
+            `  ${SYMBOLS.process} CLI otomatis mendeteksi token setelah login`,
+            `  ${colorize('Browser tetap terbuka di background untuk bypass Cloudflare', 'green')}`,
+        ], 'orange'));
+        console.log('');
+
+        const result = await loginViaBrowser();
+        if (result?.bearer) {
+            const cleanBearer = result.bearer.replace(/^Bearer\s+/i, '').trim();
+            const cleanCf     = (result.cf || '').trim();
+            updateEnvFile(cleanBearer, cleanCf);
+            return { bearerToken: cleanBearer, cfClearance: cleanCf };
+        }
     }
 
     console.log(warning('Login otomatis gagal. Beralih ke input manual.'));

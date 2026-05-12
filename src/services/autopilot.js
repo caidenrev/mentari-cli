@@ -8,8 +8,8 @@ const ENDPOINT_QUIZ_START = '/quiz/start';   // PUT
 const ENDPOINT_QUIZ_DATA  = '/quiz/soal';    // GET (harus setelah start)
 const ENDPOINT_QUIZ_JAWAB = '/quiz/jawab';   // PUT
 const ENDPOINT_QUIZ_END   = '/quiz/end';     // PUT
-const ENDPOINT_FORUM_DATA = '/forum/data';
-const ENDPOINT_FORUM_POST = '/forum/reply';
+const ENDPOINT_FORUM_TOPIC = '/forum/topic'; // GET /{id_forum}
+const ENDPOINT_FORUM_REPLY = '/forum/reply'; // POST (body: {id_topic, id_post, konten})
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -389,14 +389,26 @@ async function eksekusiForum(idModul) {
     if (!idModul) return;
 
     try {
-        console.log(`   ${colorize('├─', 'orange')} ${info(`Mengambil topik forum ID: ${idModul}...`)}`);
-        const forumData    = await fetchWithReauth(`${ENDPOINT_FORUM_DATA}/${idModul}`);
-        const topikDiskusi = (forumData.data && forumData.data.find(d => d.post_type === 'TOPIC')) || forumData;
+        // GET /forum/topic/{id_forum} — ambil topik diskusi
+        console.log(`   ${colorize('├─', 'orange')} ${info('Mengambil topik forum...')}`);
+        const forumData = await fetchWithReauth(`${ENDPOINT_FORUM_TOPIC}/${idModul}`);
 
-        if (!topikDiskusi?.konten) throw new Error('Konten topik forum tidak ditemukan.');
+        // Cari topik utama (reply_level === 0, post_type === 'TOPIC')
+        const topics = forumData.topics || forumData.data || [];
+        const topik  = topics.find(t => t.post_type === 'TOPIC' && t.reply_level === 0)
+                    || topics[0];
 
-        const kontenTopik = topikDiskusi.konten.replace(/<[^>]*>?/gm, '');
+        if (!topik) throw new Error('Topik forum tidak ditemukan.');
+
+        const kontenTopik = (topik.konten || '').replace(/<[^>]*>?/gm, '');
+        const idTopik     = topik.id;
+
         console.log(`   ${colorize('├─', 'orange')} Topik: ${colorize(kontenTopik.substring(0, 70) + '...', 'gray')}`);
+        console.log(`   ${colorize('├─', 'orange')} ${info(`id_topic: ${idTopik}`)}`);
+        console.log(`   ${colorize('├─', 'orange')} ${info(`id_forum (idModul): ${idModul}`)}`)
+
+        // Balasan ke-1: id_post = id_topic
+        let idPostPrev = idTopik;
 
         for (let i = 1; i <= 2; i++) {
             console.log(`   ${colorize('├─', 'orange')} ${info(`Membuat balasan ke-${i} via AI...`)}`);
@@ -407,16 +419,32 @@ async function eksekusiForum(idModul) {
             const balasanAI = await getJawabanForumAI(kontenTopik, instruksi);
             console.log(`   ${colorize('├─', 'orange')} ${info(`Mengirim balasan ke-${i}...`)}`);
 
-            await fetchWithReauth(ENDPOINT_FORUM_POST, 'POST', {
-                id_topic: topikDiskusi.id,
-                id_post:  topikDiskusi.id,
-                judul:    `RE ${topikDiskusi.judul.replace('RE ', '')}`,
+            await fetchWithReauth(ENDPOINT_FORUM_REPLY, 'POST', {
+                id_topic: idTopik,
+                id_post:  idPostPrev,
+                judul:    `RE: ${topik.judul || 'Forum Diskusi'}`,
                 konten:   balasanAI,
             });
+
+            console.log(`   ${colorize('│  ', 'orange')} ${success(`Balasan ke-${i} terkirim.`)}`)
 
             if (i === 1) {
                 console.log(`   ${colorize('├─', 'orange')} ${info('Jeda 5 detik...')}`);
                 await sleep(5000);
+
+                // GET /forum/reply/{id_topic} untuk dapat id reply pertama
+                try {
+                    const replyData = await fetchWithReauth(`${ENDPOINT_FORUM_REPLY}/${idTopik}`);
+                    // Cari reply terbaru milik kita (reply_level > 0, nim tidak null)
+                    const replies = replyData.topics || replyData.replies || replyData.data || [];
+                    const myReply = [...replies]
+                        .reverse()
+                        .find(r => r.reply_level > 0 && r.nim !== null);
+                    if (myReply?.id) {
+                        idPostPrev = myReply.id;
+                        console.log(`   ${colorize('├─', 'orange')} ${info(`id_post untuk reply ke-2: ${idPostPrev.substring(0, 8)}...`)}`);
+                    }
+                } catch { /* pakai idTopik sebagai fallback */ }
             }
         }
     } catch (e) {

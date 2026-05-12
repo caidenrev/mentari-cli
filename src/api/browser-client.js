@@ -54,7 +54,10 @@ export async function fetchViaBrowser(endpoint, method = 'GET', payload = null, 
         try {
             const body = JSON.parse(result.body);
             if (body.message) serverMsg = ` — ${body.message}`;
-        } catch {}
+            else serverMsg = ` — ${result.body.substring(0, 100)}`;
+        } catch {
+            serverMsg = ` — ${result.body.substring(0, 100)}`;
+        }
         throw new Error(`HTTP Error: ${result.status}${serverMsg} pada ${endpoint}`);
     }
 

@@ -53,19 +53,29 @@ export async function getJawabanKuisAI(teksSoal, listOpsi) {
  * Fungsi untuk generate argumen Forum Diskusi
  */
 export async function getJawabanForumAI(teksTopik, instruksiTambahan = "") {
-    const prompt = `Kamu adalah mahasiswa IT yang sedang mengikuti forum diskusi perkuliahan.
-    
-    Topik/Pertanyaan dari Dosen:
-    "${teksTopik}"
-    
-    Instruksi: ${instruksiTambahan}
-    Tugasmu: Buatlah balasan diskusi yang natural, menggunakan bahasa Indonesia akademis yang sopan, seolah-olah ditulis oleh mahasiswa asli. Awali dengan kata-kata seperti "Izin menjawab pak/bu" atau sejenisnya.
-    OUTPUT HANYA TEKS BALASAN FORUM, TANPA KUTIPAN ATAU FORMAT MARKDOWN.`;
+    const prompt = `Kamu adalah mahasiswa IT semester akhir yang aktif di forum diskusi perkuliahan online.
+
+Topik diskusi dari dosen:
+"${teksTopik}"
+
+Instruksi tambahan: ${instruksiTambahan}
+
+Aturan penulisan yang WAJIB diikuti:
+- Tulis seperti mahasiswa asli, santai tapi tetap sopan dan akademis
+- Jika topik diawali salam (Assalamualaikum, Halo, dll), balas salamnya dulu secara singkat
+- JANGAN gunakan "Izin menjawab pak/bu" atau sapaan pak/bu sama sekali
+- JANGAN gunakan format markdown: tidak ada **bold**, tidak ada *italic*, tidak ada bullet point dengan simbol
+- JANGAN gunakan simbol *, #, -, atau format apapun
+- Tulis paragraf biasa, mengalir, seperti orang mengetik di kolom komentar
+- Panjang jawaban 2-3 kalimat saja, singkat dan langsung ke poin
+- Gunakan bahasa Indonesia yang natural, boleh sedikit informal tapi tetap berbobot
+
+OUTPUT HANYA TEKS BALASAN FORUM SAJA, TANPA APAPUN SELAIN TEKS ITU.`;
 
     try {
         return await generateWithFallback(prompt);
     } catch (error) {
         console.log(warning(`AI Gagal merespon forum: ${error.message.substring(0, 80)}`));
-        return "Izin menyimak materi dari Bapak/Ibu dosen.";
+        return "Waalaikumsalam, terima kasih atas materinya. Saya setuju bahwa topik ini sangat penting untuk dipahami lebih dalam.";
     }
 }

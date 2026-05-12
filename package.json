@@ -1,6 +1,6 @@
 {
   "name": "mentari-cli",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "LMS Auto-Pilot CLI untuk mahasiswa UNPAM — otomasi tugas, absensi, dan forum diskusi berbasis AI Gemini",
   "main": "src/index.js",
   "type": "module",
